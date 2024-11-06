@@ -12,118 +12,58 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "ShaderProgram.h"
 #include "Entity.h"
+#include <vector>
 
-void Entity::ai_activate(Entity *player)
-{
-    switch (m_ai_type)
-    {
-        case WALKER:
-            ai_walk();
-            break;
-            
-        case GUARD:
-            ai_guard(player);
-            break;
-            
-        default:
-            break;
-    }
-}
 
-void Entity::ai_walk()
-{
-    m_movement = glm::vec3(-1.0f, 0.0f, 0.0f);
-}
-
-void Entity::ai_guard(Entity *player)
-{
-    switch (m_ai_state) {
-        case IDLE:
-            if (glm::distance(m_position, player->get_position()) < 3.0f) m_ai_state = WALKING;
-            break;
-            
-        case WALKING:
-            if (m_position.x > player->get_position().x) {
-                m_movement = glm::vec3(-1.0f, 0.0f, 0.0f);
-            } else {
-                m_movement = glm::vec3(1.0f, 0.0f, 0.0f);
-            }
-            break;
-            
-        case ATTACKING:
-            break;
-            
-        default:
-            break;
-    }
-}
 // Default constructor
 Entity::Entity()
     : m_position(0.0f), m_movement(0.0f), m_scale(1.0f, 1.0f, 0.0f), m_model_matrix(1.0f),
-    m_speed(0.0f), m_animation_cols(0), m_animation_frames(0), m_animation_index(0),
-    m_animation_rows(0), m_animation_indices(nullptr), m_animation_time(0.0f),
-    m_texture_id(0), m_velocity(0.0f), m_acceleration(0.0f), m_width(0.0f), m_height(0.0f)
+      m_speed(0.0f), m_animation_cols(0), m_animation_frames(0), m_animation_index(0),
+      m_animation_rows(0), m_animation_indices(nullptr), m_animation_time(0.0f),
+      m_current_animation(IDLE)
 {
-    // Initialize m_walking with zeros or any default value
-    for (int i = 0; i < SECONDS_PER_FRAME; ++i)
-        for (int j = 0; j < SECONDS_PER_FRAME; ++j) m_walking[i][j] = 0;
 }
 
 // Parameterized constructor
-Entity::Entity(GLuint texture_id, float speed, glm::vec3 acceleration, float jump_power, int walking[4][4], float animation_time,
-    int animation_frames, int animation_index, int animation_cols,
-    int animation_rows, float width, float height, EntityType EntityType)
+Entity::Entity(std::vector<GLuint> texture_ids, float speed,
+               std::vector<std::vector<int>> animations, float animation_time,
+               int animation_frames, int animation_index, int animation_cols,
+               int animation_rows, Animation animation)
     : m_position(0.0f), m_movement(0.0f), m_scale(1.0f, 1.0f, 0.0f), m_model_matrix(1.0f),
-    m_speed(speed),m_acceleration(acceleration), m_jumping_power(jump_power), m_animation_cols(animation_cols),
-    m_animation_frames(animation_frames), m_animation_index(animation_index),
-    m_animation_rows(animation_rows), m_animation_indices(nullptr),
-    m_animation_time(animation_time), m_texture_id(texture_id), m_velocity(0.0f),
-    m_width(width), m_height(height), m_entity_type(EntityType)
+      m_speed(speed), m_texture_ids(texture_ids), m_animations(animations),
+      m_animation_cols(animation_cols), m_animation_frames(animation_frames),
+      m_animation_index(animation_index), m_animation_rows(animation_rows),
+      m_animation_time(animation_time), m_current_animation(animation)
 {
-    face_right();
-    set_walking(walking);
-}
-
-// Simpler constructor for partial initialization
-Entity::Entity(GLuint texture_id, float speed,  float width, float height, EntityType EntityType)
-    : m_position(0.0f), m_movement(0.0f), m_scale(1.0f, 1.0f, 0.0f), m_model_matrix(1.0f),
-    m_speed(speed), m_animation_cols(0), m_animation_frames(0), m_animation_index(0),
-    m_animation_rows(0), m_animation_indices(nullptr), m_animation_time(0.0f),
-    m_texture_id(texture_id), m_velocity(0.0f), m_acceleration(0.0f), m_width(width), m_height(height),m_entity_type(EntityType)
-{
-    // Initialize m_walking with zeros or any default value
-    for (int i = 0; i < SECONDS_PER_FRAME; ++i)
-        for (int j = 0; j < SECONDS_PER_FRAME; ++j) m_walking[i][j] = 0;
-}
-
-
-Entity::Entity(GLuint texture_id, float speed, float width, float height, EntityType EntityType, AIType AIType, AIState AIState): m_position(0.0f), m_movement(0.0f), m_scale(1.0f, 1.0f, 0.0f), m_model_matrix(1.0f),
-m_speed(speed), m_animation_cols(0), m_animation_frames(0), m_animation_index(0),
-m_animation_rows(0), m_animation_indices(nullptr), m_animation_time(0.0f),
-m_texture_id(texture_id), m_velocity(0.0f), m_acceleration(0.0f), m_width(width), m_height(height),m_entity_type(EntityType), m_ai_type(AIType), m_ai_state(AIState)
-{
-// Initialize m_walking with zeros or any default value
-for (int i = 0; i < SECONDS_PER_FRAME; ++i)
-    for (int j = 0; j < SECONDS_PER_FRAME; ++j) m_walking[i][j] = 0;
+    set_animation_state(m_current_animation);  // Initialize animation state
 }
 
 Entity::~Entity() { }
 
-void Entity::draw_sprite_from_texture_atlas(ShaderProgram* program, GLuint texture_id, int index)
+void Entity::set_animation_state(Animation new_animation)
 {
-    // Step 1: Calculate the UV location of the indexed frame
-    float u_coord = (float)(index % m_animation_cols) / (float)m_animation_cols;
-    float v_coord = (float)(index / m_animation_cols) / (float)m_animation_rows;
+    m_current_animation = new_animation;
 
-    // Step 2: Calculate its UV size
-    float width = 1.0f / (float)m_animation_cols;
-    float height = 1.0f / (float)m_animation_rows;
+    // Update the texture and animation indices based on the current animation
+    m_animation_indices = m_animations[m_current_animation].data();
+    m_animation_rows = m_animations[m_current_animation].size();
+}
 
-    // Step 3: Just as we have done before, match the texture coordinates to the vertices
+// Render the appropriate texture and animation frame
+void Entity::draw_sprite_from_texture_atlas(ShaderProgram* program)
+{
+    GLuint current_texture = m_texture_ids[m_current_animation];  // Get the right texture
+
+    float u_coord = (float) (m_animation_index % m_animation_cols) / (float) m_animation_cols;
+    float v_coord = (float) (m_animation_index / m_animation_cols) / (float) m_animation_rows;
+
+    float width = 1.0f / (float) m_animation_cols;
+    float height = 1.0f / (float) m_animation_rows;
+
     float tex_coords[] =
     {
-        u_coord, v_coord + height, u_coord + width, v_coord + height, u_coord + width, v_coord,
-        u_coord, v_coord + height, u_coord + width, v_coord, u_coord, v_coord
+        u_coord, v_coord + height, u_coord + width, v_coord + height, u_coord + width,
+        v_coord, u_coord, v_coord + height, u_coord + width, v_coord, u_coord, v_coord
     };
 
     float vertices[] =
@@ -132,13 +72,14 @@ void Entity::draw_sprite_from_texture_atlas(ShaderProgram* program, GLuint textu
         -0.5, -0.5, 0.5,  0.5, -0.5, 0.5
     };
 
-    // Step 4: And render
-    glBindTexture(GL_TEXTURE_2D, texture_id);
+    glBindTexture(GL_TEXTURE_2D, current_texture);
 
-    glVertexAttribPointer(program->get_position_attribute(), 2, GL_FLOAT, false, 0, vertices);
+    glVertexAttribPointer(program->get_position_attribute(), 2, GL_FLOAT, false, 0,
+                          vertices);
     glEnableVertexAttribArray(program->get_position_attribute());
 
-    glVertexAttribPointer(program->get_tex_coordinate_attribute(), 2, GL_FLOAT, false, 0, tex_coords);
+    glVertexAttribPointer(program->get_tex_coordinate_attribute(), 2, GL_FLOAT, false, 0,
+                          tex_coords);
     glEnableVertexAttribArray(program->get_tex_coordinate_attribute());
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -215,97 +156,108 @@ void const Entity::check_collision_x(Entity *collidable_entities, int collidable
 }
 
 
-void const Entity::check_collision_y(Map *map)
+bool Entity::check_collision_y(Map *map)
 {
-    // Probes for tiles above
     glm::vec3 top = glm::vec3(m_position.x, m_position.y + (m_height / 2), m_position.z);
-    glm::vec3 top_left = glm::vec3(m_position.x - (m_width / 2), m_position.y + (m_height / 2), m_position.z);
-    glm::vec3 top_right = glm::vec3(m_position.x + (m_width / 2), m_position.y + (m_height / 2), m_position.z);
-    
-    // Probes for tiles below
     glm::vec3 bottom = glm::vec3(m_position.x, m_position.y - (m_height / 2), m_position.z);
-    glm::vec3 bottom_left = glm::vec3(m_position.x - (m_width / 2), m_position.y - (m_height / 2), m_position.z);
-    glm::vec3 bottom_right = glm::vec3(m_position.x + (m_width / 2), m_position.y - (m_height / 2), m_position.z);
-    
-    float penetration_x = 0;
-    float penetration_y = 0;
-    
-    // If the map is solid, check the top three points
-    if (map->is_solid(top, &penetration_x, &penetration_y) && m_velocity.y > 0)
-    {
-        m_position.y -= penetration_y;
-        m_velocity.y = 0;
-        m_collided_top = true;
-    }
-    else if (map->is_solid(top_left, &penetration_x, &penetration_y) && m_velocity.y > 0)
-    {
-        m_position.y -= penetration_y;
-        m_velocity.y = 0;
-        m_collided_top = true;
-    }
-    else if (map->is_solid(top_right, &penetration_x, &penetration_y) && m_velocity.y > 0)
-    {
-        m_position.y -= penetration_y;
-        m_velocity.y = 0;
-        m_collided_top = true;
-    }
-    
-    // And the bottom three points
+
+    float penetration_x = 0, penetration_y = 0;
+
+    int tileType = -1; // Initialize tileType
+
+    // Check collisions below
     if (map->is_solid(bottom, &penetration_x, &penetration_y) && m_velocity.y < 0)
     {
         m_position.y += penetration_y;
         m_velocity.y = 0;
         m_collided_bottom = true;
+
+        // Get the tile type at the bottom collision position
+        int tile_x = static_cast<int>(floor(bottom.x / map->get_tile_size()));
+        int tile_y = static_cast<int>(-ceil(bottom.y / map->get_tile_size()));
+        tileType = map->get_tile_type(tile_x, tile_y);
     }
-    else if (map->is_solid(bottom_left, &penetration_x, &penetration_y) && m_velocity.y < 0)
+
+    // Check collisions above
+    if (map->is_solid(top, &penetration_x, &penetration_y) && m_velocity.y > 0)
     {
-            m_position.y += penetration_y;
-            m_velocity.y = 0;
-            m_collided_bottom = true;
-    }
-    else if (map->is_solid(bottom_right, &penetration_x, &penetration_y) && m_velocity.y < 0)
-    {
-        m_position.y += penetration_y;
+        m_position.y -= penetration_y;
         m_velocity.y = 0;
-        m_collided_bottom = true;
-        
+        m_collided_top = true;
+
+        // Get the tile type at the top collision position
+        int tile_x = static_cast<int>(floor(top.x / map->get_tile_size()));
+        int tile_y = static_cast<int>(-ceil(top.y / map->get_tile_size()));
+        tileType = map->get_tile_type(tile_x, tile_y);
     }
+
+    // Set game status based on tile type
+    if (tileType == 3) {
+        set_game_status(true);
+        set_collided_tile(3);  // Mission Accomplished
+    } else if (tileType > 0) {
+        set_game_status(true);
+        set_collided_tile(tileType);  // Mission Failed
+    }
+
+    return (m_collided_top || m_collided_bottom);
 }
 
-void const Entity::check_collision_x(Map *map)
+void Entity::check_collision_x(Map *map)
 {
-    // Probes for tiles; the x-checking is much simpler
-    glm::vec3 left  = glm::vec3(m_position.x - (m_width / 2), m_position.y, m_position.z);
+    glm::vec3 left = glm::vec3(m_position.x - (m_width / 2), m_position.y, m_position.z);
     glm::vec3 right = glm::vec3(m_position.x + (m_width / 2), m_position.y, m_position.z);
-    
-    float penetration_x = 0;
-    float penetration_y = 0;
-    
+
+    float penetration_x = 0, penetration_y = 0;
+
+    int tileType = -1; // Initializing the tileType
+
+    // Check collision on the left
     if (map->is_solid(left, &penetration_x, &penetration_y) && m_velocity.x < 0)
     {
         m_position.x += penetration_x;
         m_velocity.x = 0;
         m_collided_left = true;
+
+        // Get the tile type at the left collision position
+        int tile_x = static_cast<int>(floor(left.x / map->get_tile_size()));
+        int tile_y = static_cast<int>(-ceil(left.y / map->get_tile_size()));
+        tileType = map->get_tile_type(tile_x, tile_y);
     }
+
+    // Check collision on the right
     if (map->is_solid(right, &penetration_x, &penetration_y) && m_velocity.x > 0)
     {
         m_position.x -= penetration_x;
         m_velocity.x = 0;
         m_collided_right = true;
+
+        // Get the tile type at the right collision position
+        int tile_x = static_cast<int>(floor(right.x / map->get_tile_size()));
+        int tile_y = static_cast<int>(-ceil(right.y / map->get_tile_size()));
+        tileType = map->get_tile_type(tile_x, tile_y);
+    }
+
+    // Set game status based on tile type
+    if (tileType == 3) {
+        set_game_status(true);
+        set_collided_tile(3);  // Mission Accomplished Tile
+    } else if (tileType > 0) {
+        set_game_status(true);
+        set_collided_tile(tileType);  // Mission Failed Tiles which are every other tile
     }
 }
+
 
 
 void Entity::update(float delta_time, Entity *player, Entity *collidable_entities, int collidable_entity_count, Map *map)
 {
     if (!m_is_active) return;
- 
+    
     m_collided_top    = false;
     m_collided_bottom = false;
     m_collided_left   = false;
     m_collided_right  = false;
-    
-    if (m_entity_type == ENEMY) ai_activate(player);
     
     if (m_animation_indices != NULL)
     {
@@ -326,43 +278,67 @@ void Entity::update(float delta_time, Entity *player, Entity *collidable_entitie
             }
         }
     }
+
+    m_position.y += m_velocity.y* delta_time;
+
+    if (!m_collided_top) {
+        m_velocity.y += GRAVITY * delta_time;
+    }
     
-    m_velocity.x = m_movement.x * m_speed;
-    m_velocity += m_acceleration * delta_time;
+    glm::vec3 acceleration(0.0f, 0.0f, 0.0f);
+    const Uint8 *key_state = SDL_GetKeyboardState(NULL);
+
+    if (key_state[SDL_SCANCODE_SPACE]) {
+        if (m_rotation == 0.0f){
+            acceleration.y = ACCELERATION; // Accelerate right
+        } else if (m_rotation == 90.0f){
+            acceleration.x = ACCELERATION; // Accelerate right
+        } else if (m_rotation == -90.0f){
+            acceleration.x = -ACCELERATION; // Accelerate right
+        }
+
+    }
     
-    m_position.y += m_velocity.y * delta_time;
-    check_collision_y(collidable_entities, collidable_entity_count);
-    check_collision_y(map);
+    m_velocity.x += acceleration.x * delta_time;
     
+    // Apply drift
+    if (m_velocity.x > 0) {
+        m_velocity.x -= drift * delta_time;
+        if (m_velocity.x < 0) m_velocity.x = 0;  // Stop if too low
+    } else if (m_velocity.x < 0) {
+        m_velocity.x += drift * delta_time;
+        if (m_velocity.x > 0) m_velocity.x = 0;  // Stop if too low
+    }
+
     m_position.x += m_velocity.x * delta_time;
+    m_position.y += acceleration.y * delta_time;
+
     check_collision_x(collidable_entities, collidable_entity_count);
     check_collision_x(map);
+    check_collision_y(collidable_entities, collidable_entity_count);
+    bool collision_y = check_collision_y(map);
     
-    if (m_is_jumping)
-    {
-        m_is_jumping = false;
-        m_velocity.y += m_jumping_power;
+    if (collision_y){
+        set_game_status(true);
     }
     
     m_model_matrix = glm::mat4(1.0f);
     m_model_matrix = glm::translate(m_model_matrix, m_position);
+    m_model_matrix = glm::rotate(m_model_matrix, glm::radians(m_rotation), glm::vec3(0.0f, 0.0f, -1.0f)); // Apply rotation
 }
+
 
 
 void Entity::render(ShaderProgram* program)
 {
     program->set_model_matrix(m_model_matrix);
 
-    if (m_animation_indices != NULL)
-    {
-        draw_sprite_from_texture_atlas(program, m_texture_id, m_animation_indices[m_animation_index]);
-        return;
-    }
-
+    if (m_animation_indices != nullptr) draw_sprite_from_texture_atlas(program);
+    
     float vertices[] = { -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5 };
     float tex_coords[] = { 0.0,  1.0, 1.0,  1.0, 1.0, 0.0,  0.0,  1.0, 1.0, 0.0,  0.0, 0.0 };
 
-    glBindTexture(GL_TEXTURE_2D, m_texture_id);
+//    glBindTexture(GL_TEXTURE_2D, m_texture_id);
 
     glVertexAttribPointer(program->get_position_attribute(), 2, GL_FLOAT, false, 0, vertices);
     glEnableVertexAttribArray(program->get_position_attribute());
@@ -374,3 +350,4 @@ void Entity::render(ShaderProgram* program)
     glDisableVertexAttribArray(program->get_position_attribute());
     glDisableVertexAttribArray(program->get_tex_coordinate_attribute());
 }
+
