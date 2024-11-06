@@ -46,6 +46,7 @@
 		ADF92EDF2CDA3878007532A3 /* missionFail.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = missionFail.png; sourceTree = "<group>"; };
 		ADF92EE02CDA3885007532A3 /* vamp.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = vamp.png; sourceTree = "<group>"; };
 		ADF92EE12CDA41FF007532A3 /* tileset.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = tileset.png; sourceTree = "<group>"; };
+		ADF92EE22CDB15B2007532A3 /* font1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = font1.png; sourceTree = "<group>"; };
 		DBDF1B4F2323DE3F007CECB1 /* SDLProject */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SDLProject; sourceTree = BUILT_PRODUCTS_DIR; };
 		DBDF1B522323DE3F007CECB1 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		DBDF1B592323DE8D007CECB1 /* ShaderProgram.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ShaderProgram.h; sourceTree = "<group>"; };
@@ -96,6 +97,7 @@
 		DBDF1B512323DE3F007CECB1 /* SDLProject */ = {
 			isa = PBXGroup;
 			children = (
+				ADF92EE22CDB15B2007532A3 /* font1.png */,
 				ADF92EE12CDA41FF007532A3 /* tileset.png */,
 				ADF92EE02CDA3885007532A3 /* vamp.png */,
 				ADF92EDE2CDA3878007532A3 /* missionComp.png */,

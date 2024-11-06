@@ -1,3 +1,12 @@
+/**
+* Author: Yanka Sikder
+* Assignment: Lunar Lander
+* Date due: 2024-10-26, 11:59pm ( EXTENDED DUE TO CONFERENCE (SLS EXCUSED) & FILE ISSUES)
+* I pledge that I have completed this assignment without
+* collaborating with anyone else, in conformance with the
+* NYU School of Engineering Policies and Procedures on
+* Academic Misconduct.
+**/
 #define STB_IMAGE_IMPLEMENTATION
 #define GL_SILENCE_DEPRECATION
 #define GL_GLEXT_PROTOTYPES 1
@@ -8,7 +17,6 @@
 // defining constants based on the tilset
 #define TILE_COUNT_X 4  // 4 tiles horizontally
 #define TILE_COUNT_Y 1  // 1 tile vertically
-
 
 #ifdef _WINDOWS
     #include <GL/glew.h>
@@ -25,6 +33,7 @@
 #include <ctime>
 #include "cmath"
 #include "Map.h"
+#include <string>
 
 // ————— CONSTANTS ————— //
 constexpr int WINDOW_WIDTH  = 640 * 2,
@@ -45,13 +54,15 @@ constexpr char V_SHADER_PATH[] = "shaders/vertex_textured.glsl",
 
 constexpr float MILLISECONDS_IN_SECOND = 1000.0;
 
-constexpr glm::vec3 PLAYER_IDLE_SCALE = glm::vec3(1.0f, 1.0f, 0.0f);
 constexpr glm::vec3 PLAYER_IDLE_LOCATION = glm::vec3(3.0f, 2.0f, 0.0f);
 constexpr glm::vec3 INIT_FINAL_SCREEN_SCALE = glm::vec3(4.0f, 4.0f, 1.0f);
 
 constexpr char MAP_TILESET_FILEPATH[] = "tileset.png",
 ACCOMPLISHED_FILEPATH[] = "missionComp.png",
 FAILED_FILEPATH[] = "missionFail.png";
+
+constexpr char FONTSHEET_FILEPATH[]   = "font1.png";
+constexpr int FONTBANK_SIZE = 16;
 
 // ————— STRUCTS AND ENUMS —————//
 enum AppStatus  { RUNNING, TERMINATED };
@@ -69,6 +80,8 @@ ShaderProgram g_shader_program;
 glm::mat4 g_view_matrix, g_projection_matrix, g_accomplished_matrix, g_failed_matrix;
 
 GLuint g_accomplished_texture_id, g_failed_texture_id;
+
+GLuint g_font_texture_id;
 
 constexpr int NUMBER_OF_TEXTURES = 1;
 constexpr GLint LEVEL_OF_DETAIL  = 0;
@@ -88,6 +101,9 @@ float g_previous_ticks = 0.0f,
       g_accumulator    = 0.0f;
 
 bool game_over;
+
+void draw_text(ShaderProgram *shader_program, GLuint font_texture_id, std::string text,
+               float font_size, float spacing, glm::vec3 position);
 
 void initialise();
 void process_input();
@@ -120,6 +136,73 @@ GLuint load_texture(const char* filepath)
     stbi_image_free(image);
     
     return texture_id;
+}
+
+// taken from lecture: sprites-and-text to draw UI for fuel (Extra - Credit)
+void draw_text(ShaderProgram *shader_program, GLuint font_texture_id, std::string text,
+               float font_size, float spacing, glm::vec3 position)
+{
+    // Scale the size of the fontbank in the UV-plane
+    // We will use this for spacing and positioning
+    float width = 1.0f / FONTBANK_SIZE;
+    float height = 1.0f / FONTBANK_SIZE;
+
+    // Instead of having a single pair of arrays, we'll have a series of pairs—one for
+    // each character. Don't forget to include <vector>!
+    std::vector<float> vertices;
+    std::vector<float> texture_coordinates;
+
+    // For every character...
+    for (int i = 0; i < text.size(); i++) {
+        // 1. Get their index in the spritesheet, as well as their offset (i.e. their
+        //    position relative to the whole sentence)
+        int spritesheet_index = (int) text[i];  // ascii value of character
+        float offset = (font_size + spacing) * i;
+
+        // 2. Using the spritesheet index, we can calculate our U- and V-coordinates
+        float u_coordinate = (float) (spritesheet_index % FONTBANK_SIZE) / FONTBANK_SIZE;
+        float v_coordinate = (float) (spritesheet_index / FONTBANK_SIZE) / FONTBANK_SIZE;
+
+        // 3. Inset the current pair in both vectors
+        vertices.insert(vertices.end(), {
+            offset + (-0.5f * font_size), 0.5f * font_size,
+            offset + (-0.5f * font_size), -0.5f * font_size,
+            offset + (0.5f * font_size), 0.5f * font_size,
+            offset + (0.5f * font_size), -0.5f * font_size,
+            offset + (0.5f * font_size), 0.5f * font_size,
+            offset + (-0.5f * font_size), -0.5f * font_size,
+        });
+
+        texture_coordinates.insert(texture_coordinates.end(), {
+            u_coordinate, v_coordinate,
+            u_coordinate, v_coordinate + height,
+            u_coordinate + width, v_coordinate,
+            u_coordinate + width, v_coordinate + height,
+            u_coordinate + width, v_coordinate,
+            u_coordinate, v_coordinate + height,
+        });
+    }
+
+    // 4. And render all of them using the pairs
+    glm::mat4 model_matrix = glm::mat4(1.0f);
+    model_matrix = glm::translate(model_matrix, position);
+
+    shader_program->set_model_matrix(model_matrix);
+    glUseProgram(shader_program->get_program_id());
+
+    glVertexAttribPointer(shader_program->get_position_attribute(), 2, GL_FLOAT, false, 0,
+                          vertices.data());
+    glEnableVertexAttribArray(shader_program->get_position_attribute());
+
+    glVertexAttribPointer(shader_program->get_tex_coordinate_attribute(), 2, GL_FLOAT,
+                          false, 0, texture_coordinates.data());
+    glEnableVertexAttribArray(shader_program->get_tex_coordinate_attribute());
+
+    glBindTexture(GL_TEXTURE_2D, font_texture_id);
+    glDrawArrays(GL_TRIANGLES, 0, (int) (text.size() * 6));
+
+    glDisableVertexAttribArray(shader_program->get_position_attribute());
+    glDisableVertexAttribArray(shader_program->get_tex_coordinate_attribute());
 }
 
 void initialise()
@@ -172,7 +255,10 @@ void initialise()
         {0},       // IDLE animation frames
         {0}  // ATTACK animation frames
     };
-
+    
+    // font texture
+    g_font_texture_id = load_texture(FONTSHEET_FILEPATH);
+    
     g_game_state.player = new Entity(
         vampire_textures_ids,  // a list of texture IDs
         1.0f,                // translation speed; irrelevant in this problem
@@ -186,7 +272,6 @@ void initialise()
     );
 
     g_game_state.player->set_position(PLAYER_IDLE_LOCATION);
-//    g_game_state.player->set_scale(PLAYER_IDLE_SCALE);
     
     g_accomplished_matrix = glm::mat4(1.0f);
     g_accomplished_matrix = glm::scale(g_accomplished_matrix, INIT_FINAL_SCREEN_SCALE);
@@ -201,8 +286,6 @@ void initialise()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 }
-
-
 
 void process_input()
 {
@@ -248,11 +331,11 @@ void process_input()
         g_game_state.player->set_rotation(0.0f); // Rotate back to 0 degrees
     }
 
-
-    if (key_state[SDL_SCANCODE_SPACE]) {
+    // Accelerate only if there is fuel
+    if (g_game_state.player->has_fuel() && key_state[SDL_SCANCODE_SPACE]) {
         g_game_state.player->set_animation_state(ATTACK);
+        g_game_state.player->decrease_fuel(Entity::FUEL_CONSUMPTION_RATE);
     }
-
 }
 
 
@@ -313,33 +396,38 @@ void render()
         -0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f
     };
 
-    float texture_coordinates[] = {
+    float texture_coords[] = {
         0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f,
         0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
     };
 
     glVertexAttribPointer(g_shader_program.get_position_attribute(), 2, GL_FLOAT, false, 0, vertices);
     glEnableVertexAttribArray(g_shader_program.get_position_attribute());
-    glVertexAttribPointer(g_shader_program.get_tex_coordinate_attribute(), 2, GL_FLOAT, false, 0, texture_coordinates);
+    glVertexAttribPointer(g_shader_program.get_tex_coordinate_attribute(), 2, GL_FLOAT, false, 0, texture_coords);
     glEnableVertexAttribArray(g_shader_program.get_tex_coordinate_attribute());
 
-    // Only render the player and the map if the game is not over
     game_over = g_game_state.player->get_game_status();
     if (!game_over) {
+        // Setting view matrix to follow the player
         g_shader_program.set_view_matrix(g_view_matrix);
         g_game_state.player->render(&g_shader_program);
         g_game_state.map->render(&g_shader_program);
+
+        // Resetting the view matrix for fuel UI to make them fixed on the screen as the player moves
+        glm::mat4 ui_view_matrix = glm::mat4(1.0f);
+        g_shader_program.set_view_matrix(ui_view_matrix);
+
+        // drawing the word using the font png to write the fuel remaining, middle top location:
+        std::string fuel_text = "Fuel: " + std::to_string(static_cast<int>(g_game_state.player->get_fuel())) + "%";
+        draw_text(&g_shader_program, g_font_texture_id, fuel_text, 0.5f, 0.05f, glm::vec3(-2.0f, 2.0f, 0.0f));
+
     } else {
         g_view_matrix = glm::mat4(1.0f);
         g_shader_program.set_view_matrix(g_view_matrix);
         
         if (g_game_state.player->get_collided_tile() == 3) {
-            g_accomplished_matrix = glm::mat4(1.0f);
-            g_accomplished_matrix = glm::scale(g_accomplished_matrix, INIT_FINAL_SCREEN_SCALE);
             draw_object(g_accomplished_matrix, g_accomplished_texture_id);  // Mission Accomplished Screen
         } else {
-            g_failed_matrix = glm::mat4(1.0f);
-            g_failed_matrix = glm::scale(g_failed_matrix, INIT_FINAL_SCREEN_SCALE);
             draw_object(g_failed_matrix, g_failed_texture_id);  // Mission Failed Screen
         }
     }

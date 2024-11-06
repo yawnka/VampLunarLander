@@ -12,6 +12,7 @@ class Entity
 private:
     EntityType m_entity_type;
     bool m_is_active = true;
+    
     // ————— TEXTURES ————— //
     GLuint m_texture_id;
     std::vector<GLuint> m_texture_ids;  // Vector of texture IDs for different animations
@@ -57,6 +58,9 @@ private:
     const float drift = 0.5f;  // drift factor
     bool g_game_over = false;
     int tile_collided_with;
+    
+    // ————— EXTRA CREDIT FUEL VARIABLES ————— //
+    float m_fuel = 500.0f;
     
 public:
     static constexpr int SECONDS_PER_FRAME = 6;
@@ -120,5 +124,11 @@ public:
     
     void set_collided_tile(const int tile) { tile_collided_with = tile; }
     int get_collided_tile() {return tile_collided_with; }
+    
+    // ————— EXTRA CREDIT FUEL MANAGEMENT ————— //
+    static constexpr float FUEL_CONSUMPTION_RATE = 1.0f;
+    float get_fuel() const { return m_fuel; }
+    void decrease_fuel(float amount) { m_fuel -= amount; }
+    bool has_fuel() const { return m_fuel > 0; }
 };
 

@@ -1,3 +1,12 @@
+/**
+* Author: Yanka Sikder
+* Assignment: Lunar Lander
+* Date due: 2024-10-26, 11:59pm ( EXTENDED DUE TO CONFERENCE (SLS EXCUSED) & FILE ISSUES)
+* I pledge that I have completed this assignment without
+* collaborating with anyone else, in conformance with the
+* NYU School of Engineering Policies and Procedures on
+* Academic Misconduct.
+**/
 #include "Map.h"
 
 #define TILE_COUNT_X 4  // 4 tiles horizontally

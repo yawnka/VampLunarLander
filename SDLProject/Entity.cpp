@@ -1,3 +1,12 @@
+/**
+* Author: Yanka Sikder
+* Assignment: Lunar Lander
+* Date due: 2024-10-26, 11:59pm ( EXTENDED DUE TO CONFERENCE (SLS EXCUSED) & FILE ISSUES)
+* I pledge that I have completed this assignment without
+* collaborating with anyone else, in conformance with the
+* NYU School of Engineering Policies and Procedures on
+* Academic Misconduct.
+**/
 #define GL_SILENCE_DEPRECATION
 #define STB_IMAGE_IMPLEMENTATION
 
@@ -253,24 +262,24 @@ void Entity::check_collision_x(Map *map)
 void Entity::update(float delta_time, Entity *player, Entity *collidable_entities, int collidable_entity_count, Map *map)
 {
     if (!m_is_active) return;
-    
+
     m_collided_top    = false;
     m_collided_bottom = false;
     m_collided_left   = false;
     m_collided_right  = false;
-    
+
     if (m_animation_indices != NULL)
     {
         if (glm::length(m_movement) != 0)
         {
             m_animation_time += delta_time;
             float frames_per_second = (float) 1 / SECONDS_PER_FRAME;
-            
+
             if (m_animation_time >= frames_per_second)
             {
                 m_animation_time = 0.0f;
                 m_animation_index++;
-                
+
                 if (m_animation_index >= m_animation_frames)
                 {
                     m_animation_index = 0;
@@ -279,35 +288,35 @@ void Entity::update(float delta_time, Entity *player, Entity *collidable_entitie
         }
     }
 
-    m_position.y += m_velocity.y* delta_time;
+    m_position.y += m_velocity.y * delta_time;
 
     if (!m_collided_top) {
         m_velocity.y += GRAVITY * delta_time;
     }
-    
+
     glm::vec3 acceleration(0.0f, 0.0f, 0.0f);
     const Uint8 *key_state = SDL_GetKeyboardState(NULL);
 
-    if (key_state[SDL_SCANCODE_SPACE]) {
-        if (m_rotation == 0.0f){
-            acceleration.y = ACCELERATION; // Accelerate right
-        } else if (m_rotation == 90.0f){
-            acceleration.x = ACCELERATION; // Accelerate right
-        } else if (m_rotation == -90.0f){
-            acceleration.x = -ACCELERATION; // Accelerate right
+    // Apply acceleration if there is fuel and the player presses the space key
+    if (has_fuel() && key_state[SDL_SCANCODE_SPACE]) {
+        if (m_rotation == 0.0f) {
+            acceleration.y = ACCELERATION;
+        } else if (m_rotation == 90.0f) {
+            acceleration.x = ACCELERATION;
+        } else if (m_rotation == -90.0f) {
+            acceleration.x = -ACCELERATION;
         }
-
     }
-    
+
     m_velocity.x += acceleration.x * delta_time;
-    
+
     // Apply drift
     if (m_velocity.x > 0) {
         m_velocity.x -= drift * delta_time;
-        if (m_velocity.x < 0) m_velocity.x = 0;  // Stop if too low
+        if (m_velocity.x < 0) m_velocity.x = 0;
     } else if (m_velocity.x < 0) {
         m_velocity.x += drift * delta_time;
-        if (m_velocity.x > 0) m_velocity.x = 0;  // Stop if too low
+        if (m_velocity.x > 0) m_velocity.x = 0;
     }
 
     m_position.x += m_velocity.x * delta_time;
@@ -317,15 +326,16 @@ void Entity::update(float delta_time, Entity *player, Entity *collidable_entitie
     check_collision_x(map);
     check_collision_y(collidable_entities, collidable_entity_count);
     bool collision_y = check_collision_y(map);
-    
-    if (collision_y){
+
+    if (collision_y) {
         set_game_status(true);
     }
-    
+
     m_model_matrix = glm::mat4(1.0f);
     m_model_matrix = glm::translate(m_model_matrix, m_position);
-    m_model_matrix = glm::rotate(m_model_matrix, glm::radians(m_rotation), glm::vec3(0.0f, 0.0f, -1.0f)); // Apply rotation
+    m_model_matrix = glm::rotate(m_model_matrix, glm::radians(m_rotation), glm::vec3(0.0f, 0.0f, -1.0f));
 }
+
 
 
 
